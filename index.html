@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Find mapped truck-parking locations from OpenStreetMap community data. Verify conditions and rules before parking.">
+  <title>US Truck Parking Trusted</title>
+  <link rel="preconnect" href="https://unpkg.com"><link rel="preconnect" href="https://tile.openstreetmap.org">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <style>
+    :root{--navy:#10253f;--blue:#1769aa;--teal:#13847a;--ink:#182230;--muted:#637083;--line:#dbe2ea;--bg:#f3f6f9;--white:#fff;--amber:#fff4d7}
+    *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);background:var(--bg)}
+    header{background:var(--navy);color:white;padding:18px clamp(16px,4vw,42px);display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
+    .brand{font-size:clamp(20px,3vw,28px);font-weight:800;letter-spacing:-.4px}.brand span{color:#79d5ca}.tagline{font-size:13px;color:#d6e2ed;margin-top:4px}
+    .trust-pill{border:1px solid #688097;border-radius:999px;padding:7px 11px;font-size:12px;color:#e6edf4}
+    main{max-width:1440px;margin:auto;padding:20px;display:grid;grid-template-columns:minmax(300px,390px) minmax(0,1fr);gap:18px}
+    .panel,.map-panel{background:var(--white);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 4px 16px #10253f0a}
+    .panel{padding:20px}.panel h1{font-size:21px;margin:0 0 8px}.intro{font-size:14px;color:var(--muted);line-height:1.5;margin:0 0 18px}
+    label{font-size:13px;font-weight:700;display:block;margin-bottom:7px}.searchrow{display:flex;gap:8px}.searchrow input{min-width:0;flex:1}
+    input,select,button{font:inherit;border-radius:10px;padding:11px 12px;border:1px solid #c9d3df;background:white;color:var(--ink)}button{cursor:pointer;font-weight:700;border:0;background:var(--blue);color:white}button:disabled{opacity:.55;cursor:wait}button.secondary{background:#eaf1f7;color:var(--navy);border:1px solid #d6e0ea}
+    .hint{font-size:12px;color:var(--muted);line-height:1.45;margin:8px 0 16px}.status{font-size:13px;line-height:1.45;padding:10px 12px;border-radius:10px;background:#eef5fb;color:#254d70;margin:12px 0}.status.error{background:#fff0ed;color:#8a2b1d}.status.warn{background:var(--amber);color:#765516}
+    .results-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:18px 0 10px}.results-head h2{font-size:16px;margin:0}.count{font-size:12px;color:var(--muted)}
+    .result-list{display:flex;flex-direction:column;gap:10px}.result{border:1px solid var(--line);border-radius:12px;padding:12px;cursor:pointer}.result:hover,.result:focus{border-color:var(--blue);outline:none}.result h3{font-size:14px;margin:0 0 5px}.result p{font-size:12px;color:var(--muted);margin:4px 0;line-height:1.4}.tag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.2px;padding:4px 7px;border-radius:5px;background:#eaf5f2;color:#166b62;margin:3px 4px 0 0}.tag.unknown{background:#fff4d7;color:#765516}
+    .map-panel{display:flex;flex-direction:column;min-height:670px}.mapbar{padding:13px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.mapbar strong{font-size:14px}.mapbar small{color:var(--muted)}#map{height:600px;min-height:500px;flex:1;z-index:1}.mapnote{padding:10px 15px;font-size:11px;line-height:1.45;color:var(--muted);border-top:1px solid var(--line)}
+    .notice{font-size:12px;line-height:1.5;background:#f8fafc;border:1px solid var(--line);padding:12px;border-radius:10px;margin-top:18px;color:#455367}.footer{max-width:1440px;margin:0 auto;padding:0 20px 22px;color:var(--muted);font-size:12px;line-height:1.5}.footer a{color:var(--blue)}
+    @media(max-width:900px){main{grid-template-columns:1fr;padding:12px}.panel{order:1}.map-panel{order:2;min-height:520px}#map{height:470px;min-height:400px}.footer{padding:0 14px 20px}}
+  </style>
+</head>
+<body>
+<header><div><div class="brand">US Truck Parking <span>Trusted</span></div><div class="tagline">Search mapped locations. Check the source. Verify before you park.</div></div><div class="trust-pill">Community map data · Not live availability</div></header>
+<main>
+  <section class="panel" aria-label="Search truck parking">
+    <h1>Find truck-parking locations</h1>
+    <p class="intro">Search a US city, state, or ZIP code. Results come from OpenStreetMap community mapping and may be incomplete or outdated.</p>
+    <form id="searchForm"><label for="place">City, state, or ZIP code</label><div class="searchrow"><input id="place" name="place" placeholder="e.g. Greensboro, NC" value="Greensboro, NC" required maxlength="120"><button id="searchBtn" type="submit">Search</button></div></form>
+    <p class="hint">Tip: search a smaller city or area for faster results. The first version searches a limited area around the chosen place.</p>
+    <div id="status" class="status" role="status" aria-live="polite">Ready. Search for an area to load mapped locations.</div>
+    <div class="results-head"><h2>Locations found</h2><span id="count" class="count">0 results</span></div>
+    <div id="results" class="result-list"><p class="hint">Your results will appear here.</p></div>
+    <div class="notice"><strong>Important:</strong> A map marker does not prove that a location allows commercial trucks, has open spaces, is safe, or is available now. Confirm rules, access, fees, and current conditions with the property/operator before relying on it.</div>
+  </section>
+  <section class="map-panel" aria-label="Map of truck parking locations"><div class="mapbar"><strong>Map view</strong><small id="mapLabel">United States</small></div><div id="map" role="application" aria-label="Interactive map"></div><div class="mapnote">Map © OpenStreetMap contributors. Tiles are provided by OpenStreetMap. Use of this map is subject to the provider's terms.</div></section>
+</main>
+<div class="footer">Data source: <a href="https://www.openstreetmap.org/" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>. Search provider: <a href="https://nominatim.org/" target="_blank" rel="noopener noreferrer">Nominatim</a>. This website is an informational map, not a parking reservation service and not a guarantee of accuracy, safety, legality, or availability.</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const map = L.map('map').setView([39.5,-98.35], 4);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+  const markers = L.featureGroup().addTo(map);
+  let currentResults = [];
+  function status(message, kind='') { $('status').textContent=message; $('status').className='status'+(kind?' '+kind:''); }
+  function esc(value) { return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+  function labelFor(tags) {
+    return tags.name || tags.operator || tags.brand || tags.amenity || tags.highway || 'Unnamed mapped location';
+  }
+  function tagDetails(tags) {
+    const out=[];
+    const mapping=[['access','Access'],['fee','Fee'],['capacity','Capacity'],['opening_hours','Hours'],['amenity','Type'],['hgv','Heavy vehicles'],['truck','Truck tag'],['lit','Lighting']];
+    for (const [key,label] of mapping) if(tags[key]) out.push(`${label}: ${tags[key]}`);
+    return out;
+  }
+  function renderResults(items) {
+    currentResults=items; markers.clearLayers(); $('results').replaceChildren(); $('count').textContent=`${items.length} result${items.length===1?'':'s'}`;
+    if(!items.length){$('results').innerHTML='<p class="hint">No matching mapped locations were returned for this area. This does not prove that no truck parking exists here. Try another nearby city or ZIP code.</p>';return;}
+    const bounds=[];
+    items.forEach((item,index)=>{
+      const lat=Number(item.lat), lon=Number(item.lon); if(!Number.isFinite(lat)||!Number.isFinite(lon)) return;
+      const tags=item.tags||{}; const name=labelFor(tags); const details=tagDetails(tags); const osmUrl=`https://www.openstreetmap.org/${encodeURIComponent(item.type)}/${encodeURIComponent(item.id)}`;
+      const marker=L.marker([lat,lon]).bindPopup(`<strong>${esc(name)}</strong><br><span>OpenStreetMap community data</span><br><a href="${osmUrl}" target="_blank" rel="noopener noreferrer">View source record</a>`);
+      markers.addLayer(marker); bounds.push([lat,lon]);
+      const card=document.createElement('article'); card.className='result'; card.tabIndex=0; card.setAttribute('role','button');
+      const detailHtml=details.length?details.map(x=>`<span class="tag">${esc(x)}</span>`).join(''):'<span class="tag unknown">Details not provided in source</span>';
+      card.innerHTML=`<h3>${esc(name)}</h3><p>${esc(item.type)} · OSM ID ${esc(item.id)}</p><div>${detailHtml}</div><p>Source record: <a href="${osmUrl}" target="_blank" rel="noopener noreferrer">OpenStreetMap</a></p><p>Not verified live. Check permission, truck access, fees, and current availability.</p>`;
+      const focus=()=>{map.setView([lat,lon],15);marker.openPopup();}; card.addEventListener('click',focus); card.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();focus();}}); $('results').appendChild(card);
+    });
+    if(bounds.length){if(bounds.length===1)map.setView(bounds[0],14);else map.fitBounds(bounds,{padding:[25,25],maxZoom:13});}
+  }
+  async function searchArea(event){event?.preventDefault(); const query=$('place').value.trim(); if(!query)return; $('searchBtn').disabled=true; $('searchBtn').textContent='Searching…'; status('Finding the area, then checking mapped data…'); $('results').innerHTML='';
+    try {
+      const geoResponse=await fetch(`/api/search?q=${encodeURIComponent(query)}`); const geo=await geoResponse.json();
+      if(!geoResponse.ok) throw new Error(geo.error||'Could not find this area.');
+      const box=geo.bbox; if(!Array.isArray(box)||box.length!==4) throw new Error('The location service did not return a usable map area.');
+      const [south,north,west,east]=box.map(Number); $('mapLabel').textContent=geo.display_name||query;
+      map.fitBounds([[south,west],[north,east]],{padding:[20,20]}); status('Area found. Loading OpenStreetMap data…');
+      const parkingResponse=await fetch(`/api/parking?south=${south}&north=${north}&west=${west}&east=${east}`);
+      const data=await parkingResponse.json(); if(!parkingResponse.ok) throw new Error(data.error||'The parking-data service could not complete the search.');
+      renderResults(data.elements||[]);
+      const fetched=data.fetchedAt?new Date(data.fetchedAt).toLocaleString():'not provided';
+      if(data.elements?.length) status(`Returned ${data.elements.length} mapped locations. Data fetched: ${fetched}. Fetch time is not a field inspection or live availability check.`,'warn');
+      else status(`The source returned no matching locations. Data checked: ${fetched}. No results does not mean no parking exists.`,'warn');
+    } catch(error){renderResults([]); status(`${error.message||'Unexpected error.'} No sample or invented locations are being shown. Please try again later or search another area.`,'error');}
+    finally{$('searchBtn').disabled=false;$('searchBtn').textContent='Search';}
+  }
+  $('searchForm').addEventListener('submit',searchArea);
+  setTimeout(()=>map.invalidateSize(),150);
+})();
+</script>
+</body></html>
